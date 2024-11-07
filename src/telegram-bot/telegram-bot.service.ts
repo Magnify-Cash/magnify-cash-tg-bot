@@ -19,8 +19,6 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { nowUTCDate } from 'src/shared/utils/now-utc-date.util';
 import { addDays, differenceInDays } from 'date-fns';
 import { utc } from '@date-fns/utc';
-import { calculateLoanInterest } from 'src/shared/utils/calculate-loan-interest.util';
-import { fromWei } from 'src/shared/utils/from-wei.util';
 import { toWei } from 'src/shared/utils/to-wei.utils';
 
 @Injectable()
@@ -132,37 +130,15 @@ export class TelegramBotService implements OnModuleInit {
       decryptedPrivateKey as Hex,
     );
 
-    const {
-      minAmount,
-      maxAmount,
-      minInterest,
-      maxInterest,
-      minDuration,
-      maxDuration,
-    } = await this.coinbaseService.getLoanConfig(lendingDeskId);
-
-    const amountInput = fromWei(BigInt(amount), erc20ContractDecimals);
+    const { maxInterest } =
+      await this.coinbaseService.getLoanConfig(lendingDeskId);
 
     const params = {
       lendingDeskId,
       nftId: user.verification.collateralNftId,
       duration: Math.round(Number(duration) * 24),
       amount: toWei(amount, erc20ContractDecimals),
-      maxInterestAllowed: Math.round(
-        calculateLoanInterest(
-          {
-            minAmount,
-            maxAmount,
-            minInterest,
-            maxInterest,
-            minDuration,
-            maxDuration,
-          },
-          amountInput,
-          duration,
-          erc20ContractDecimals,
-        ) * 100,
-      ),
+      maxInterestAllowed: maxInterest,
     };
 
     this.logger.debug(
