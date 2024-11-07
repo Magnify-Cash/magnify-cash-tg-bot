@@ -483,7 +483,7 @@ Due Date: ${dueDate.toDateString()}
 Days Left: ${differenceInDays(dueDate, nowUTCDate())}
 Total Due: ${formattedAmount}
 
-💫 Repay your loan to receive 1.5% back in $MAG Tokens!
+💫 Repay is not available yet! Try again later
       `,
         {
           reply_markup: {
@@ -521,8 +521,8 @@ Total Due: ${formattedAmount}
 📊 Active Loan Details
 
 Amount: ${amount}
-Due Date: 12/28/2024
-Days Left: 60
+Due Date: ${dueDate.toDateString()}
+Days Left: ${differenceInDays(dueDate, nowUTCDate())}
 Total Due: ${totalDue}
 
 💫 Repay your loan to receive 1.5% back in $MAG Tokens!
@@ -546,6 +546,14 @@ Total Due: ${totalDue}
 
   async handleGetLoan(msg: Message) {
     const { chat } = msg;
+
+    const user = await this.usersService.getById(chat.id);
+
+    if (!user.verificationNullifierHash) {
+      await this.handleWalletIsReadyToUse(msg);
+
+      return;
+    }
 
     const loan = await this.usersService.getFirstActiveLoanByUserId(chat.id);
 
@@ -642,7 +650,12 @@ Next step: Complete identity verification to access lending services.
       {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '💰 Get a Loan', callback_data: 'getLoan' }],
+            [
+              {
+                text: '✅ Complete Verification',
+                callback_data: 'verify',
+              },
+            ],
             [{ text: '💼 View Wallet', callback_data: 'handleWallet' }],
             [{ text: '❓ Help', callback_data: 'help' }],
           ],
