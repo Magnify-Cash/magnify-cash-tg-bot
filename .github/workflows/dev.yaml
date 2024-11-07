@@ -1,0 +1,43 @@
+name: DEV Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths-ignore:
+      - ".github/workflows/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    env:
+      name: ${GITHUB_REPOSITORY#*/}-dev
+      ssh-key: ${{ secrets.DEV_SSH_KEY }}
+      tag: latest #or ${{ github.sha }}
+      host: ${{ vars.DEV_NAME }}@${{ vars.DEV_IP }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build docker image
+        run: |
+          docker build . -t ${{ env.name }}:${{ env.tag }}
+
+      - name: Save docker image
+        run: |
+          docker save -o ${{ env.name }}.tar ${{ env.name }}:${{ env.tag }}
+
+      - name: Copy image to EC2
+        run: |
+          echo "${{ env.ssh-key }}" > ssh-key.pem
+          sudo chmod 400 ssh-key.pem
+          scp -i ssh-key.pem -o StrictHostKeyChecking=no ${{ env.name }}.tar ${{ env.host }}:${{ env.name }}.tar
+
+      - name: Start image
+        run: |
+          ssh -i ssh-key.pem -o StrictHostKeyChecking=no ${{ env.host }} ' \
+          sudo docker load -i '${{ env.name }}'.tar && \
+          sudo docker compose -f backend/compose.yaml up -d && \
+          sudo docker image prune -af'
