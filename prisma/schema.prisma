@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                        BigInt        @id
+  wallet                    Wallet        @relation(fields: [walletAddress], references: [address])
+  walletAddress             String        @unique
+  verification              Verification? @relation(fields: [verificationNullifierHash], references: [nullifierHash])
+  verificationNullifierHash String?       @unique
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @default(now()) @updatedAt
+  loans                     Loan[]
+
+  @@map("users")
+}
+
+model Wallet {
+  address                    String   @id
+  coinbaseSmartWalletAddress String
+  mnemonic                   String
+  privateKey                 String
+  user                       User?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @default(now()) @updatedAt
+
+  @@map("user_wallets")
+}
+
+model Verification {
+  nullifierHash     String            @id
+  verificationLevel VerificationLevel @default(orb)
+  proof             String
+  merkleRoot        String
+  signal            String?
+  txHash            String
+  sbtId             BigInt
+  collateralNftId   BigInt
+  user              User?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @default(now()) @updatedAt
+
+  @@unique([txHash, sbtId, collateralNftId])
+  @@map("verifications")
+}
+
+enum VerificationLevel {
+  orb
+}
+
+model Loan {
+  loanId           BigInt     @id
+  user             User       @relation(fields: [userId], references: [id])
+  userId           BigInt
+  status           LoanStatus @default(ACTIVE)
+  lendingDeskId    BigInt
+  borrower         String
+  nftCollection    String
+  nftId            BigInt
+  amount           Decimal
+  duration         BigInt
+  interest         BigInt
+  platformFee      Decimal
+  initializeTxHash String
+  repayTxHash      String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @default(now()) @updatedAt
+
+  @@map("user_loans")
+}
+
+enum LoanStatus {
+  ACTIVE
+  RESOLVED
+  DEFAULTED
+}

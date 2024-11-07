@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+   <meta charset="UTF-8" />
+   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+   <title>Verify with World ID</title>
+
+   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+   <script src="https://unpkg.com/@worldcoin/idkit-standalone/build/index.global.js"></script>
+   <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+   <style>
+      body {
+         margin: 0;
+      }
+
+      #open-idkit {
+         background-color: #0d151d;
+         color: #fff;
+         cursor: pointer;
+         font-size: x-large;
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         min-height: 100vh;
+         width: 100%;
+         border: none;
+         -webkit-tap-highlight-color: transparent;
+      }
+   </style>
+</head>
+
+<body>
+   <button id="open-idkit">Open IDKit</button>
+   <script type="text/javascript">
+      const webApp = window.Telegram.WebApp;
+      webApp.expand();
+
+      const { initData, initDataUnsafe } = webApp;
+      const { id: userId } = initDataUnsafe.user;
+
+      const signal = `${userId}`;
+
+      IDKit.init({
+         autoClose: false,
+         app_id: '{{ appId }}',
+         action: '{{ action }}',
+         signal,
+         handleVerify: async response => {
+            try {
+               await axios.post(`/api/world-id/verify`, {
+                  proof: response,
+                  signal
+               }, {
+                  headers: {
+                     'init-data': initData,
+                  }
+               });
+            } catch (error) {
+               throw new Error(JSON.stringify(error?.response?.data || 'Internal Server Error'));
+            }
+         },
+         onError: error => console.error(error),
+      });
+
+      document.getElementById('open-idkit').addEventListener('click', async () => {
+         await IDKit.open();
+      });
+   </script>
+</body>
+
+</html>
