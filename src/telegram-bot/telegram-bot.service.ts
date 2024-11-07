@@ -16,6 +16,9 @@ import { CoinbaseService } from 'src/coinbase/coinbase.service';
 import { Prisma } from '@prisma/client';
 import { LendingDeskConfig } from 'src/shared/configs/lending-desk.config';
 import { Decimal } from '@prisma/client/runtime/library';
+import { nowUTCDate } from 'src/shared/utils/now-utc-date.util';
+import { addDays, differenceInDays } from 'date-fns';
+import { utc } from '@date-fns/utc';
 
 @Injectable()
 export class TelegramBotService implements OnModuleInit {
@@ -459,6 +462,39 @@ Your credentials will self-destruct in:
       await this.bot.deleteMessage(msg.chat.id, msg.message_id);
 
       return await this.handleGetLoan(msg);
+    }
+
+    const formattedAmount = loan.amount
+      .div(10 ** erc20ContractDecimals)
+      .toFixed(4);
+
+    const dueDate = addDays(loan.createdAt, Number(loan.duration) / 24, {
+      in: utc,
+    });
+
+    if (nowUTCDate().getTime() - loan.createdAt.getTime() <= 60 * 60 * 1000) {
+      await this.bot.sendMessage(
+        chat.id,
+        `
+📊 Active Loan Details
+
+Amount: ${formattedAmount}
+Due Date: ${dueDate.toDateString()} 
+Days Left: ${differenceInDays(dueDate, nowUTCDate())}
+Total Due: ${formattedAmount}
+
+💫 Repay your loan to receive 1.5% back in $MAG Tokens!
+      `,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💼 Back to Wallet', callback_data: 'handleWallet' }],
+            ],
+          },
+        },
+      );
+
+      return;
     }
 
     const loanInfo = await this.coinbaseService.loanInfo(loan.loanId);
