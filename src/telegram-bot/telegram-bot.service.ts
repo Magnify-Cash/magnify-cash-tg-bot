@@ -19,6 +19,9 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { nowUTCDate } from 'src/shared/utils/now-utc-date.util';
 import { addDays, differenceInDays } from 'date-fns';
 import { utc } from '@date-fns/utc';
+import { calculateLoanInterest } from 'src/shared/utils/calculate-loan-interest.util';
+import { fromWei } from 'src/shared/utils/from-wei.util';
+import { toWei } from 'src/shared/utils/to-wei.utils';
 
 @Injectable()
 export class TelegramBotService implements OnModuleInit {
@@ -94,12 +97,7 @@ export class TelegramBotService implements OnModuleInit {
         } else if (data.startsWith('selectLoanDuration')) {
           const parts = data.split(';');
 
-          await this.handleSelectLoanDuration(
-            msg,
-            parts[1],
-            parts[2],
-            parts[3],
-          );
+          await this.handleSelectLoanDuration(msg, parts[1], parts[2]);
         }
       } catch (error) {
         this.logger.error(error);
@@ -111,7 +109,6 @@ export class TelegramBotService implements OnModuleInit {
     msg: Message,
     duration: string,
     amount: string,
-    maxInterestAllowed: string,
   ) {
     const { erc20ContractDecimals, lendingDeskId } = this.lendingDeskConfig;
     const { secret } = this.encryptionConfig;
@@ -135,14 +132,37 @@ export class TelegramBotService implements OnModuleInit {
       decryptedPrivateKey as Hex,
     );
 
+    const {
+      minAmount,
+      maxAmount,
+      minInterest,
+      maxInterest,
+      minDuration,
+      maxDuration,
+    } = await this.coinbaseService.getLoanConfig(lendingDeskId);
+
+    const amountInput = fromWei(BigInt(amount), erc20ContractDecimals);
+
     const params = {
       lendingDeskId,
       nftId: user.verification.collateralNftId,
-      duration: Number(duration) * 24,
-      amount: BigInt(
-        new Decimal(amount).mul(10 ** erc20ContractDecimals).toFixed(),
+      duration: Math.round(Number(duration) * 24),
+      amount: toWei(amount, erc20ContractDecimals),
+      maxInterestAllowed: Math.round(
+        calculateLoanInterest(
+          {
+            minAmount,
+            maxAmount,
+            minInterest,
+            maxInterest,
+            minDuration,
+            maxDuration,
+          },
+          amountInput,
+          duration,
+          erc20ContractDecimals,
+        ) * 100,
       ),
-      maxInterestAllowed: Number(maxInterestAllowed) * 100,
     };
 
     this.logger.debug(
@@ -187,11 +207,7 @@ Transaction: ${txHash}
     ]);
   }
 
-  async handleSelectLoanAmount(
-    msg: Message,
-    amount: string,
-    maxInterestAllowed: string,
-  ) {
+  async handleSelectLoanAmount(msg: Message, amount: string, apr: string) {
     const { chat } = msg;
 
     await this.bot.sendMessage(
@@ -200,7 +216,7 @@ Transaction: ${txHash}
 📝 Select Loan Duration
 
 Amount: ${amount}
-APR: ${maxInterestAllowed}%
+APR: ${apr}%
 
 Choose your preferred duration:
     `,
@@ -210,27 +226,27 @@ Choose your preferred duration:
             [
               {
                 text: '7 Days',
-                callback_data: `selectLoanDuration;7;${amount};${maxInterestAllowed}`,
+                callback_data: `selectLoanDuration;7;${amount};${apr}`,
               },
               {
                 text: '14 Days',
-                callback_data: `selectLoanDuration;14;${amount};${maxInterestAllowed}`,
+                callback_data: `selectLoanDuration;14;${amount};${apr}`,
               },
             ],
             [
               {
                 text: '30 Days',
-                callback_data: `selectLoanDuration;30;${amount};${maxInterestAllowed}`,
+                callback_data: `selectLoanDuration;30;${amount};${apr}`,
               },
               {
                 text: '45 Days',
-                callback_data: `selectLoanDuration;45;${amount};${maxInterestAllowed}`,
+                callback_data: `selectLoanDuration;45;${amount};${apr}`,
               },
             ],
             [
               {
                 text: '60 Days',
-                callback_data: `selectLoanDuration;60;${amount};${maxInterestAllowed}`,
+                callback_data: `selectLoanDuration;60;${amount};${apr}`,
               },
             ],
             [{ text: '❌ Cancel', callback_data: 'getLoan' }],

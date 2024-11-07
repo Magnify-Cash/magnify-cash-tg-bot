@@ -128,6 +128,49 @@ export class LendingDeskService {
     });
   }
 
+  async lendingDeskLoanConfigs(
+    publicClient: any,
+    lendingDeskId: bigint,
+  ): Promise<{
+    nftCollection: string;
+    nftCollectionIsErc1155: boolean;
+    minAmount: bigint;
+    maxAmount: bigint;
+    minInterest: number;
+    maxInterest: number;
+    minDuration: number;
+    maxDuration: number;
+  }> {
+    const { contractAddress } = this.lendingDeskConfig;
+
+    const [
+      nftCollection,
+      nftCollectionIsErc1155,
+      minAmount,
+      maxAmount,
+      minInterest,
+      maxInterest,
+      minDuration,
+      maxDuration,
+    ] = await publicClient.readContract({
+      address: contractAddress,
+      abi: LENDING_DESK_ABI,
+      functionName: 'lendingDeskLoanConfigs',
+      args: [lendingDeskId, this.collateralNftConfig.contractAddress],
+    });
+
+    return {
+      nftCollection,
+      nftCollectionIsErc1155,
+      minAmount,
+      maxAmount,
+      minInterest,
+      maxInterest,
+      minDuration,
+      maxDuration,
+    };
+  }
+
   async getLoanAmountDue(publicClient: any, loanId: bigint): Promise<bigint> {
     const { contractAddress } = this.lendingDeskConfig;
 
