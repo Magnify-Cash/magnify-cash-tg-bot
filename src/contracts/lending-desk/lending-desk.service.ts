@@ -181,4 +181,26 @@ export class LendingDeskService {
       args: [loanId],
     });
   }
+
+  async erc20Symbol(publicClient: any) {
+    const { erc20ContractAddress } = this.lendingDeskConfig;
+
+    return await publicClient.readContract({
+      address: erc20ContractAddress,
+      abi: ERC20_ABI,
+      functionName: 'symbol',
+      args: [],
+    });
+  }
+
+  async erc20Decimals(publicClient: any) {
+    const { erc20ContractAddress } = this.lendingDeskConfig;
+
+    return await publicClient.readContract({
+      address: erc20ContractAddress,
+      abi: ERC20_ABI,
+      functionName: 'decimals',
+      args: [],
+    });
+  }
 }

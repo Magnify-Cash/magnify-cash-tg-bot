@@ -186,12 +186,14 @@ Transaction: ${txHash}
   async handleSelectLoanAmount(msg: Message, amount: string, apr: string) {
     const { chat } = msg;
 
+    const symbol = await this.coinbaseService.erc20Symbol();
+
     await this.bot.sendMessage(
       chat.id,
       `
 📝 Select Loan Duration
 
-Amount: ${amount}
+Amount: ${amount} ${symbol}
 APR: ${apr}%
 
 Choose your preferred duration:
@@ -352,7 +354,8 @@ Recovery Phrase: ${mnemonic}
 ⚠️ IMPORTANT: Save these credentials securely!
 • Write down the recovery phrase on paper
 • Never share your private key
-• Delete this message after saving
+
+❗️❗️❗️IMPORTANT: This message will be deleted permanently after saving credentials
 
 💡 You can manage your wallet using the Coinbase Wallet app or web interface.
         `,
@@ -464,16 +467,18 @@ Your credentials will self-destruct in:
       in: utc,
     });
 
+    const symbol = await this.coinbaseService.erc20Symbol();
+
     if (nowUTCDate().getTime() - loan.createdAt.getTime() <= 60 * 60 * 1000) {
       await this.bot.sendMessage(
         chat.id,
         `
 📊 Active Loan Details
 
-Amount: ${formattedAmount}
+Amount: ${formattedAmount} ${symbol}
 Due Date: ${dueDate.toDateString()} 
 Days Left: ${differenceInDays(dueDate, nowUTCDate())}
-Total Due: ${formattedAmount}
+Total Due: ${formattedAmount} ${symbol}
 
 💫 Repay is not available yet! Try again later
       `,
@@ -512,10 +517,10 @@ Total Due: ${formattedAmount}
       `
 📊 Active Loan Details
 
-Amount: ${amount}
+Amount: ${amount} ${symbol}
 Due Date: ${dueDate.toDateString()}
 Days Left: ${differenceInDays(dueDate, nowUTCDate())}
-Total Due: ${totalDue}
+Total Due: ${totalDue} ${symbol}
 
 💫 Repay your loan to receive 1.5% back in $MAG Tokens!
     `,
@@ -550,6 +555,8 @@ Total Due: ${totalDue}
     const loan = await this.usersService.getFirstActiveLoanByUserId(chat.id);
 
     if (!loan) {
+      const symbol = await this.coinbaseService.erc20Symbol();
+
       await this.bot.sendMessage(
         chat.id,
         `
@@ -564,19 +571,19 @@ Choose your loan amount:
             inline_keyboard: [
               [
                 {
-                  text: '$5 (15.0% APR)',
+                  text: `5 ${symbol} (15.0% APR)`,
                   callback_data: 'selectLoanAmount;5;15',
                 },
               ],
               [
                 {
-                  text: '$10 (12.5% APR)',
+                  text: `10 ${symbol} (12.5% APR)`,
                   callback_data: 'selectLoanAmount;10;12.5',
                 },
               ],
               [
                 {
-                  text: '$15 (10.0% APR)',
+                  text: `15 ${symbol} (10.0% APR)`,
                   callback_data: 'selectLoanAmount;15;10',
                 },
               ],
@@ -780,13 +787,15 @@ Something went wrong. Please try again or contact support`,
       .div(10 ** erc20ContractDecimals)
       .toFixed(4);
 
+    const symbol = await this.coinbaseService.erc20Symbol();
+
     await this.bot.sendMessage(
       chat.id,
       `
 💼 Your Wallet
 
 Address: ${user.wallet.coinbaseSmartWalletAddress}
-Balance: ${balance}
+Balance: ${balance} ${symbol}
 
 Status: ${status}
 

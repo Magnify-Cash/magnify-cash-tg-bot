@@ -58,6 +58,14 @@ export class CoinbaseService {
     );
   }
 
+  async erc20Symbol(): Promise<string> {
+    return await this.lendingDeskService.erc20Symbol(this.publicClient);
+  }
+
+  async erc20Decimals(): Promise<number> {
+    return await this.lendingDeskService.erc20Decimals(this.publicClient);
+  }
+
   async toCoinbaseSmartAccount(privateKey: Hex): Promise<any> {
     return await toCoinbaseSmartAccount({
       client: this.publicClient as never,
