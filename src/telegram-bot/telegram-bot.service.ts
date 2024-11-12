@@ -207,8 +207,8 @@ Choose your preferred duration:
                 callback_data: `selectLoanDuration;7;${amount};${apr}`,
               },
               {
-                text: '14 Days',
-                callback_data: `selectLoanDuration;14;${amount};${apr}`,
+                text: '15 Days',
+                callback_data: `selectLoanDuration;15;${amount};${apr}`,
               },
             ],
             [
@@ -219,12 +219,6 @@ Choose your preferred duration:
               {
                 text: '45 Days',
                 callback_data: `selectLoanDuration;45;${amount};${apr}`,
-              },
-            ],
-            [
-              {
-                text: '60 Days',
-                callback_data: `selectLoanDuration;60;${amount};${apr}`,
               },
             ],
             [{ text: '❌ Cancel', callback_data: 'getLoan' }],
@@ -461,7 +455,7 @@ Your credentials will self-destruct in:
 
     const formattedAmount = loan.amount
       .div(10 ** erc20ContractDecimals)
-      .toFixed(4);
+      .toFixed();
 
     const dueDate = addDays(loan.createdAt, Number(loan.duration) / 24, {
       in: utc,
@@ -506,11 +500,11 @@ Total Due: ${formattedAmount} ${symbol}
       (await this.coinbaseService.getLoanAmountDue(loan.loanId)).toString(),
     )
       .div(10 ** erc20ContractDecimals)
-      .toFixed(4);
+      .toFixed();
 
     const amount = new Decimal(loanInfo.amount.toString())
       .div(10 ** erc20ContractDecimals)
-      .toFixed(4);
+      .toFixed();
 
     await this.bot.sendMessage(
       chat.id,
@@ -570,20 +564,20 @@ Choose your loan amount:
             inline_keyboard: [
               [
                 {
-                  text: `5 ${symbol} (15.0% APR)`,
-                  callback_data: 'selectLoanAmount;5;15',
+                  text: `1 ${symbol} (15.0% APR)`,
+                  callback_data: 'selectLoanAmount;1;15',
                 },
               ],
               [
                 {
-                  text: `10 ${symbol} (12.5% APR)`,
-                  callback_data: 'selectLoanAmount;10;12.5',
+                  text: `3 ${symbol} (12.5% APR)`,
+                  callback_data: 'selectLoanAmount;3;12.5',
                 },
               ],
               [
                 {
-                  text: `15 ${symbol} (10.0% APR)`,
-                  callback_data: 'selectLoanAmount;15;10',
+                  text: `5 ${symbol} (10.0% APR)`,
+                  callback_data: 'selectLoanAmount;5;10',
                 },
               ],
               [{ text: '❌ Cancel', callback_data: 'handleWallet' }],
@@ -784,7 +778,7 @@ Something went wrong. Please try again or contact support`,
       ).toString(),
     )
       .div(10 ** erc20ContractDecimals)
-      .toFixed(4);
+      .toFixed();
 
     const symbol = await this.coinbaseService.erc20Symbol();
 
