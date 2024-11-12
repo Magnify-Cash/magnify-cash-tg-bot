@@ -546,15 +546,31 @@
   },
   {
     "inputs": [
-      { "internalType": "uint64", "name": "_lendingDeskId", "type": "uint64" },
+      {
+        "internalType": "uint64",
+        "name": "_lendingDeskId",
+        "type": "uint64"
+      },
       {
         "internalType": "address",
         "name": "_nftCollection",
         "type": "address"
       },
-      { "internalType": "uint64", "name": "_nftId", "type": "uint64" },
-      { "internalType": "uint32", "name": "_duration", "type": "uint32" },
-      { "internalType": "uint256", "name": "_amount", "type": "uint256" },
+      {
+        "internalType": "uint256",
+        "name": "_nftId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_duration",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      },
       {
         "internalType": "uint32",
         "name": "_maxInterestAllowed",
