@@ -44,11 +44,26 @@ export class CoinbaseService {
     this.bundlerClient = createBundlerClient(clientParams);
   }
 
+  async getLoanConfig(lendingDeskId: bigint) {
+    return await this.lendingDeskService.lendingDeskLoanConfigs(
+      this.publicClient,
+      lendingDeskId,
+    );
+  }
+
   async getBalance(address: string): Promise<bigint> {
     return await this.lendingDeskService.erc20Balance(
       this.publicClient,
       address,
     );
+  }
+
+  async erc20Symbol(): Promise<string> {
+    return await this.lendingDeskService.erc20Symbol(this.publicClient);
+  }
+
+  async erc20Decimals(): Promise<number> {
+    return await this.lendingDeskService.erc20Decimals(this.publicClient);
   }
 
   async toCoinbaseSmartAccount(privateKey: Hex): Promise<any> {

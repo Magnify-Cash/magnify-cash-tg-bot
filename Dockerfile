@@ -12,6 +12,7 @@ WORKDIR /app
 COPY --chown=node:node --from=build /usr/prisma /app/prisma/
 COPY --chown=node:node --from=build /usr/node_modules ./node_modules
 COPY --chown=node:node --from=build /usr/dist ./dist
+COPY --chown=node:node --from=build /usr/views ./views
 
 USER node
 EXPOSE 3000

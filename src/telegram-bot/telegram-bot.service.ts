@@ -16,6 +16,10 @@ import { CoinbaseService } from 'src/coinbase/coinbase.service';
 import { Prisma } from '@prisma/client';
 import { LendingDeskConfig } from 'src/shared/configs/lending-desk.config';
 import { Decimal } from '@prisma/client/runtime/library';
+import { nowUTCDate } from 'src/shared/utils/now-utc-date.util';
+import { addDays, differenceInDays } from 'date-fns';
+import { utc } from '@date-fns/utc';
+import { toWei } from 'src/shared/utils/to-wei.utils';
 
 @Injectable()
 export class TelegramBotService implements OnModuleInit {
@@ -91,12 +95,7 @@ export class TelegramBotService implements OnModuleInit {
         } else if (data.startsWith('selectLoanDuration')) {
           const parts = data.split(';');
 
-          await this.handleSelectLoanDuration(
-            msg,
-            parts[1],
-            parts[2],
-            parts[3],
-          );
+          await this.handleSelectLoanDuration(msg, parts[1], parts[2]);
         }
       } catch (error) {
         this.logger.error(error);
@@ -108,7 +107,6 @@ export class TelegramBotService implements OnModuleInit {
     msg: Message,
     duration: string,
     amount: string,
-    maxInterestAllowed: string,
   ) {
     const { erc20ContractDecimals, lendingDeskId } = this.lendingDeskConfig;
     const { secret } = this.encryptionConfig;
@@ -132,14 +130,15 @@ export class TelegramBotService implements OnModuleInit {
       decryptedPrivateKey as Hex,
     );
 
+    const { maxInterest } =
+      await this.coinbaseService.getLoanConfig(lendingDeskId);
+
     const params = {
       lendingDeskId,
       nftId: user.verification.collateralNftId,
-      duration: Number(duration) * 24,
-      amount: BigInt(
-        new Decimal(amount).mul(10 ** erc20ContractDecimals).toFixed(),
-      ),
-      maxInterestAllowed: Number(maxInterestAllowed) * 100,
+      duration: Math.round(Number(duration) * 24),
+      amount: toWei(amount, erc20ContractDecimals),
+      maxInterestAllowed: maxInterest,
     };
 
     this.logger.debug(
@@ -184,20 +183,18 @@ Transaction: ${txHash}
     ]);
   }
 
-  async handleSelectLoanAmount(
-    msg: Message,
-    amount: string,
-    maxInterestAllowed: string,
-  ) {
+  async handleSelectLoanAmount(msg: Message, amount: string, apr: string) {
     const { chat } = msg;
+
+    const symbol = await this.coinbaseService.erc20Symbol();
 
     await this.bot.sendMessage(
       chat.id,
       `
 📝 Select Loan Duration
 
-Amount: ${amount}
-APR: ${maxInterestAllowed}%
+Amount: ${amount} ${symbol}
+APR: ${apr}%
 
 Choose your preferred duration:
     `,
@@ -207,27 +204,27 @@ Choose your preferred duration:
             [
               {
                 text: '7 Days',
-                callback_data: `selectLoanDuration;7;${amount};${maxInterestAllowed}`,
+                callback_data: `selectLoanDuration;7;${amount};${apr}`,
               },
               {
                 text: '14 Days',
-                callback_data: `selectLoanDuration;14;${amount};${maxInterestAllowed}`,
+                callback_data: `selectLoanDuration;14;${amount};${apr}`,
               },
             ],
             [
               {
                 text: '30 Days',
-                callback_data: `selectLoanDuration;30;${amount};${maxInterestAllowed}`,
+                callback_data: `selectLoanDuration;30;${amount};${apr}`,
               },
               {
                 text: '45 Days',
-                callback_data: `selectLoanDuration;45;${amount};${maxInterestAllowed}`,
+                callback_data: `selectLoanDuration;45;${amount};${apr}`,
               },
             ],
             [
               {
                 text: '60 Days',
-                callback_data: `selectLoanDuration;60;${amount};${maxInterestAllowed}`,
+                callback_data: `selectLoanDuration;60;${amount};${apr}`,
               },
             ],
             [{ text: '❌ Cancel', callback_data: 'getLoan' }],
@@ -357,7 +354,8 @@ Recovery Phrase: ${mnemonic}
 ⚠️ IMPORTANT: Save these credentials securely!
 • Write down the recovery phrase on paper
 • Never share your private key
-• Delete this message after saving
+
+❗️❗️❗️IMPORTANT: This message will be deleted permanently after saving credentials
 
 💡 You can manage your wallet using the Coinbase Wallet app or web interface.
         `,
@@ -461,6 +459,41 @@ Your credentials will self-destruct in:
       return await this.handleGetLoan(msg);
     }
 
+    const formattedAmount = loan.amount
+      .div(10 ** erc20ContractDecimals)
+      .toFixed(4);
+
+    const dueDate = addDays(loan.createdAt, Number(loan.duration) / 24, {
+      in: utc,
+    });
+
+    const symbol = await this.coinbaseService.erc20Symbol();
+
+    if (nowUTCDate().getTime() - loan.createdAt.getTime() <= 60 * 60 * 1000) {
+      await this.bot.sendMessage(
+        chat.id,
+        `
+📊 Active Loan Details
+
+Amount: ${formattedAmount} ${symbol}
+Due Date: ${dueDate.toDateString()} 
+Days Left: ${differenceInDays(dueDate, nowUTCDate())}
+Total Due: ${formattedAmount} ${symbol}
+
+💫 Repay is not available yet! Try again later
+      `,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💼 Back to Wallet', callback_data: 'handleWallet' }],
+            ],
+          },
+        },
+      );
+
+      return;
+    }
+
     const loanInfo = await this.coinbaseService.loanInfo(loan.loanId);
 
     if (loanInfo.status) {
@@ -484,10 +517,10 @@ Your credentials will self-destruct in:
       `
 📊 Active Loan Details
 
-Amount: ${amount}
-Due Date: 12/28/2024
-Days Left: 60
-Total Due: ${totalDue}
+Amount: ${amount} ${symbol}
+Due Date: ${dueDate.toDateString()}
+Days Left: ${differenceInDays(dueDate, nowUTCDate())}
+Total Due: ${totalDue} ${symbol}
 
 💫 Repay your loan to receive 1.5% back in $MAG Tokens!
     `,
@@ -511,9 +544,19 @@ Total Due: ${totalDue}
   async handleGetLoan(msg: Message) {
     const { chat } = msg;
 
+    const user = await this.usersService.getById(chat.id);
+
+    if (!user.verificationNullifierHash) {
+      await this.handleWalletIsReadyToUse(msg);
+
+      return;
+    }
+
     const loan = await this.usersService.getFirstActiveLoanByUserId(chat.id);
 
     if (!loan) {
+      const symbol = await this.coinbaseService.erc20Symbol();
+
       await this.bot.sendMessage(
         chat.id,
         `
@@ -528,19 +571,19 @@ Choose your loan amount:
             inline_keyboard: [
               [
                 {
-                  text: '$5 (15.0% APR)',
+                  text: `5 ${symbol} (15.0% APR)`,
                   callback_data: 'selectLoanAmount;5;15',
                 },
               ],
               [
                 {
-                  text: '$10 (12.5% APR)',
+                  text: `10 ${symbol} (12.5% APR)`,
                   callback_data: 'selectLoanAmount;10;12.5',
                 },
               ],
               [
                 {
-                  text: '$15 (10.0% APR)',
+                  text: `15 ${symbol} (10.0% APR)`,
                   callback_data: 'selectLoanAmount;15;10',
                 },
               ],
@@ -606,7 +649,12 @@ Next step: Complete identity verification to access lending services.
       {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '💰 Get a Loan', callback_data: 'getLoan' }],
+            [
+              {
+                text: '✅ Complete Verification',
+                callback_data: 'verify',
+              },
+            ],
             [{ text: '💼 View Wallet', callback_data: 'handleWallet' }],
             [{ text: '❓ Help', callback_data: 'help' }],
           ],
@@ -739,13 +787,15 @@ Something went wrong. Please try again or contact support`,
       .div(10 ** erc20ContractDecimals)
       .toFixed(4);
 
+    const symbol = await this.coinbaseService.erc20Symbol();
+
     await this.bot.sendMessage(
       chat.id,
       `
 💼 Your Wallet
 
 Address: ${user.wallet.coinbaseSmartWalletAddress}
-Balance: ${balance}
+Balance: ${balance} ${symbol}
 
 Status: ${status}
 
