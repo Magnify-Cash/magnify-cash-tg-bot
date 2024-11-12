@@ -533,7 +533,6 @@ Total Due: ${totalDue} ${symbol}
                 callback_data: 'repayLoan',
               },
             ],
-            [{ text: '🔔 Set Reminders', callback_data: 'setReminders' }],
             [{ text: '💼 Back to Wallet', callback_data: 'handleWallet' }],
           ],
         },
